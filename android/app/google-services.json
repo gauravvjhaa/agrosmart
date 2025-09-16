@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "74904330957",
+    "firebase_url": "https://agro-smart-dec18-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "agro-smart-dec18",
+    "storage_bucket": "agro-smart-dec18.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:74904330957:android:1e0bd454399b9b44b47f84",
+        "android_client_info": {
+          "package_name": "com.example.agrismart"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDNXD_2sZNgJAtF2QqBkWAd-UCmK-Wdwb8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
