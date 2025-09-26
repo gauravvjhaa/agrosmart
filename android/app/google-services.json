@@ -13,7 +13,20 @@
           "package_name": "com.example.agrismart"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "74904330957-8e8m4av9pvmd2uku6dbv1anjbvl1501t.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.agrismart",
+            "certificate_hash": "be6238bb0d7ddb62b147084e0464fcc95eb492a5"
+          }
+        },
+        {
+          "client_id": "74904330957-g66njki2qlfhvafpr39i888goma8840b.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDNXD_2sZNgJAtF2QqBkWAd-UCmK-Wdwb8"
@@ -21,7 +34,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "74904330957-g66njki2qlfhvafpr39i888goma8840b.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "74904330957-pm69egm8of8s0fg75u1n4tf7atnikau1.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.agrismart"
+              }
+            }
+          ]
         }
       }
     }

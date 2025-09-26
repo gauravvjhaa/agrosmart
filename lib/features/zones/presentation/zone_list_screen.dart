@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import '../../../core/di/service_locator.dart';
-import '../../../core/services/cache_service.dart';
 import '../../../core/models/zone.dart';
+import '../../../core/state/app_state.dart';
 
 class ZoneListScreen extends StatefulWidget {
   const ZoneListScreen({super.key});
@@ -12,45 +12,56 @@ class ZoneListScreen extends StatefulWidget {
 }
 
 class _ZoneListScreenState extends State<ZoneListScreen> {
-  // Reference to the zones root in Realtime Database
+  late final AppState _appState;
   final DatabaseReference _zonesRef = FirebaseDatabase.instance.ref('zones');
 
-  // Helper: normalize possible DB ids for a zone
-  Iterable<String> _candidateIds(Zone z) sync* {
-    final raw = z.id;
-    yield raw;
-    yield raw.toUpperCase();
-    yield raw.toLowerCase();
-    // Common pattern: zone_1 -> Z1
-    if (raw.toLowerCase().startsWith('zone_')) {
-      final tail = raw.split('_').last;
-      yield 'Z$tail';
-    }
-    // Reverse: Z1 -> zone_1
-    if (RegExp(r'^[Zz]\d+$').hasMatch(raw)) {
-      yield 'zone_${raw.substring(1)}';
-    }
-  }
+  // --- Self-Contained Localization ---
+  static const Map<String, Map<String, String>> _translations = {
+    'en': {
+      'all_zones': 'All Zones',
+      'moisture': 'Moisture',
+      'temp': 'Temp',
+      'error_loading': 'Error loading zones from database:',
+      'no_zones_in_db': 'No zones found in the database at /zones.',
+    },
+    'hi': {
+      'all_zones': 'सभी ज़ोन',
+      'moisture': 'नमी',
+      'temp': 'तापमान',
+      'error_loading': 'डेटाबेस से ज़ोन लोड करने में त्रुटि:',
+      'no_zones_in_db': 'डेटाबेस में /zones पर कोई ज़ोन नहीं मिला।',
+    },
+    'ne': {
+      'all_zones': 'सबै क्षेत्रहरू',
+      'moisture': 'नमी',
+      'temp': 'तापमान',
+      'error_loading': 'डाटाबेसबाट क्षेत्रहरू लोड गर्दा त्रुटि:',
+      'no_zones_in_db': 'डाटाबेसको /zones मा कुनै क्षेत्रहरू फेला परेन।',
+    },
+  };
 
-  bool _dbHasZone(Set<String> dbKeys, Zone z) {
-    for (final c in _candidateIds(z)) {
-      if (dbKeys.contains(c)) return true;
-    }
-    return false;
+  String _tr(String key) {
+    return _translations[_appState.locale.languageCode]?[key] ??
+        _translations['en']![key]!;
+  }
+  // --- End of Localization ---
+
+  @override
+  void initState() {
+    super.initState();
+    _appState = ServiceLocator.get<AppState>();
   }
 
   @override
   Widget build(BuildContext context) {
-    final allZones = ServiceLocator.get<CacheService>().zones;
-
     return Scaffold(
-      appBar: AppBar(title: const Text('All Zones')),
+      appBar: AppBar(title: Text(_tr('all_zones'))),
       body: StreamBuilder<DatabaseEvent>(
         stream: _zonesRef.onValue,
         builder: (context, snap) {
           if (snap.hasError) {
             return _centerText(
-              'Error loading zones from database:\n${snap.error}',
+              '${_tr('error_loading')}\n${snap.error}',
               icon: Icons.error,
               color: Colors.red,
             );
@@ -60,49 +71,69 @@ class _ZoneListScreenState extends State<ZoneListScreen> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          // Extract keys present in the DB
           final event = snap.data;
-          Set<String> presentIds = {};
-          if (event != null && event.snapshot.value is Map) {
-            final m = Map<Object?, Object?>.from(event.snapshot.value as Map);
-            presentIds = m.keys.map((k) => k.toString()).toSet();
+          if (event == null ||
+              !event.snapshot.exists ||
+              event.snapshot.value == null) {
+            return _centerText(_tr('no_zones_in_db'), icon: Icons.info_outline);
           }
 
-          // Filter cached zones against db keys
-          final visibleZones = allZones
-              .where((z) => _dbHasZone(presentIds, z))
-              .toList();
+          final zonesMap = Map<String, dynamic>.from(
+            event.snapshot.value as Map,
+          );
+          final liveZones = zonesMap.entries.map((entry) {
+            final zoneId = entry.key;
+            final zoneData = Map<String, dynamic>.from(entry.value as Map);
 
-          if (visibleZones.isEmpty) {
-            if (presentIds.isEmpty) {
-              return _centerText(
-                'No zones present in database path /zones.\n'
-                'Add a node like /zones/Z1 to see it here.',
-                icon: Icons.info_outline,
-              );
-            } else {
-              return _centerText(
-                'No matching cached zones found for existing DB keys:\n'
-                '${presentIds.join(', ')}',
-                icon: Icons.info_outline,
-              );
-            }
+            double toDouble(dynamic v) => (v is num)
+                ? v.toDouble()
+                : (double.tryParse(v.toString()) ?? 0.0);
+            // --- FIX: Helper to convert timestamp to DateTime ---
+            DateTime toDateTime(dynamic v) => (v is int)
+                ? DateTime.fromMillisecondsSinceEpoch(v)
+                : DateTime.now();
+
+            return Zone(
+              id: zoneId,
+              name: zoneId,
+              moisture: toDouble(
+                zoneData['soil_pct'] ?? zoneData['moisture_pct'],
+              ),
+              temperature: toDouble(zoneData['temp_c']),
+              mode:
+                  (zoneData['mode']?.toString().toUpperCase() ?? 'AUTO') ==
+                      'MANUAL'
+                  ? ZoneIrrigationMode.manual
+                  : ZoneIrrigationMode.auto,
+              valveOpen:
+                  (zoneData['valve_state']?.toString().toUpperCase() ??
+                      'CLOSED') ==
+                  'OPEN',
+              ph: toDouble(zoneData['ph']),
+              ec: toDouble(zoneData['ec']),
+              // --- FIX: Added the required 'updatedAt' parameter ---
+              updatedAt: toDateTime(zoneData['last_ts']),
+            );
+          }).toList()..sort((a, b) => a.name.compareTo(b.name));
+
+          if (liveZones.isEmpty) {
+            return _centerText(_tr('no_zones_in_db'), icon: Icons.info_outline);
           }
 
           return ListView.separated(
-            itemCount: visibleZones.length,
+            itemCount: liveZones.length,
             separatorBuilder: (_, __) => const Divider(height: 0),
             itemBuilder: (_, i) {
-              final z = visibleZones[i];
+              final z = liveZones[i];
               return ListTile(
                 leading: CircleAvatar(
                   backgroundColor: Colors.green.shade100,
-                  child: Text('${i + 1}'),
+                  child: Text(z.id.replaceAll(RegExp(r'[^0-9]'), '')),
                 ),
                 title: Text(z.name),
                 subtitle: Text(
-                  'Moisture ${z.moisture.toStringAsFixed(1)}% • '
-                  'Temp ${z.temperature.toStringAsFixed(1)}°C',
+                  '${_tr('moisture')} ${z.moisture.toStringAsFixed(1)}% • '
+                  '${_tr('temp')} ${z.temperature.toStringAsFixed(1)}°C',
                 ),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -111,6 +142,7 @@ class _ZoneListScreenState extends State<ZoneListScreen> {
                       z.mode == ZoneIrrigationMode.auto
                           ? Icons.auto_mode
                           : Icons.handyman,
+                      color: Theme.of(context).colorScheme.secondary,
                     ),
                     const SizedBox(width: 8),
                     Icon(
