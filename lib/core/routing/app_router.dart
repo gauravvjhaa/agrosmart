@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
-import '../../features/irrigation/presentation/irrigation_screen.dart';
+import '../../features/irrigation/presentation/irrigation_screen.dart'
+    hide Zone;
 import '../../features/crops/presentation/crop_calendar_screen.dart';
 import '../../features/community/presentation/community_screen.dart';
 import '../../features/admin/presentation/admin_audit_screen.dart';
